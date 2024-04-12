@@ -76,16 +76,31 @@ def retrieve_price_and_timestamp(jsondict):
     for dct in jsondict['data']['data']:
         price = float(dct['Overall'])
         timestamp = dct['Timestamp']
-        date = re.findall = (r'\d{2}\-\d{2}-\d{4}')
-        time = re.findall = (r'\d{2}\:\d{2}')
-        tup = (price, time, date)
+        date = re.findall(r'\d{2}\-\d{2}\-\d{4}', timestamp)[0]
+        time = re.findall(r'\d{2}\:\d{2}', timestamp)[0]
+        tup = (price, time, date, timestamp)
         lst.append(tup)
     return lst
+
+def create_electricitycost_table(dnonum, voltagelevel, start, end, cur, conn):
+    electricity_costs_dict = get_electricity_costs_dict(dnonum, voltagelevel, start, end)
+    price_list = retrieve_price_and_timestamp(electricity_costs_dict)
+    naming = start.split("-")
+    naming2 = end.split("-")
+    title = f"Electricity_Costs_{naming[0]}_{naming[1]}_{naming[2]}_to_{naming2[0]}_{naming2[1]}_{naming2[2]}"
+    cur.execute(f"DROP TABLE IF EXISTS {title}")
+    cur.execute(f'''CREATE TABLE IF NOT EXISTS {title}
+                (Timestamp TEXT PRIMARY KEY, 
+                Time TEXT,
+                Price_per_KWh INTEGER)''')
+    for tup in price_list:
+         cur.execute(f"INSERT OR IGNORE INTO Electricity_Costs_{naming[0]}_{naming[1]}_{naming[2]}_to_{naming2[0]}_{naming2[1]}_{naming2[2]} (Timestamp, Time, Price_per_KWh) VALUES (?,?,?)", (tup[3], tup[1], tup[0]))
+    conn.commit()
 
 def main():
     cur, conn = set_up_database("electricity_costs.db")
     electricity_costs_dict = get_electricity_costs_dict(12, 'HV', '09-04-2024', '10-04-2024')
-    price_list = retrieve_price_and_timestamp(electricity_costs_dict)
+    create_electricitycost_table(12, 'HV', '09-04-2024', '10-04-2024', cur, conn)
     conn.close()
 
 if __name__ == "__main__":
