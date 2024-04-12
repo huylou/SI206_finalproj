@@ -82,25 +82,43 @@ def retrieve_price_and_timestamp(jsondict):
         lst.append(tup)
     return lst
 
-def create_electricitycost_table(dnonum, voltagelevel, start, end, cur, conn):
+def create_electricitycost_table_with_limit(dnonum, voltagelevel, start, end, cur, conn):
+    '''
+    Uses functions to pull data from electricity costs API and organize into data structure
+    to create a database storing electricity costs data, with a data injection limit of 24
+
+    ARGUMENTS:
+
+    
+    OUTPUT:
+
+            
+    '''
     electricity_costs_dict = get_electricity_costs_dict(dnonum, voltagelevel, start, end)
     price_list = retrieve_price_and_timestamp(electricity_costs_dict)
-    naming = start.split("-")
-    naming2 = end.split("-")
-    title = f"Electricity_Costs_{naming[0]}_{naming[1]}_{naming[2]}_to_{naming2[0]}_{naming2[1]}_{naming2[2]}"
-    cur.execute(f"DROP TABLE IF EXISTS {title}")
-    cur.execute(f'''CREATE TABLE IF NOT EXISTS {title}
-                (Timestamp TEXT PRIMARY KEY, 
+    cur.execute(f"DROP TABLE IF EXISTS Electricity_Costs")
+    cur.execute(f'''CREATE TABLE IF NOT EXISTS Electricity_Costs
+                (Timestamp TEXT PRIMARY KEY,
+                Date TEXT, 
                 Time TEXT,
                 Price_per_KWh INTEGER)''')
+    
+    loop_count = 0
     for tup in price_list:
-         cur.execute(f"INSERT OR IGNORE INTO Electricity_Costs_{naming[0]}_{naming[1]}_{naming[2]}_to_{naming2[0]}_{naming2[1]}_{naming2[2]} (Timestamp, Time, Price_per_KWh) VALUES (?,?,?)", (tup[3], tup[1], tup[0]))
+        cur.execute(f"INSERT OR IGNORE INTO Electricity_Costs (Timestamp, Date, Time, Price_per_KWh) VALUES (?,?,?,?)", (tup[3], tup[2], tup[1], tup[0]))
+        if cur.lastrowid == 0:
+            continue
+        else:
+            loop_count += 1
+
+        if loop_count == 24:
+            break
     conn.commit()
 
 def main():
     cur, conn = set_up_database("electricity_costs.db")
     electricity_costs_dict = get_electricity_costs_dict(12, 'HV', '09-04-2024', '10-04-2024')
-    create_electricitycost_table(12, 'HV', '09-04-2024', '10-04-2024', cur, conn)
+    create_electricitycost_table_with_limit(12, 'HV', '09-04-2024', '10-04-2024', cur, conn)
     conn.close()
 
 if __name__ == "__main__":
