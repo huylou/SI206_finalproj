@@ -82,27 +82,20 @@ def retrieve_price_and_timestamp(jsondict):
         lst.append(tup)
     return lst
 
-def create_electricitycost_table_with_limit(dnonum, voltagelevel, start, end, cur, conn):
+def create_electricitycost_table_with_limit(datalist, cur, conn):
     '''
     Uses functions to pull data from electricity costs API and organize into data structure
     to create a database storing electricity costs data, with a data injection limit of 24
 
     ARGUMENTS:
-    DNO: int
-    Voltage Level: str
-    Start: str (DD-MM-YYYY)
-    End: str (DD-MM-YYYY)
-    Cursor: cur
-    Connection: conn
+        Datalist: List of tuples (Price, Time, Date) from Electricity Costs API
+        Cursor: cur
+        Connection: conn
     
     OUTPUT:
-    None, Database table created or updated
+        None, Database table created or updated
             
     '''
-    # Retrieve and organize data from API 
-    electricity_costs_dict = get_electricity_costs_dict(dnonum, voltagelevel, start, end)
-    price_list = retrieve_price_and_timestamp(electricity_costs_dict)
-
     # Create table in database if it does not exist 
     cur.execute(f'''CREATE TABLE IF NOT EXISTS Electricity_Costs
                 (Timestamp TEXT PRIMARY KEY,
@@ -119,7 +112,7 @@ def create_electricitycost_table_with_limit(dnonum, voltagelevel, start, end, cu
 
     # Insert data into database with the limit of 24 items or less
     loop_count = 0  
-    for tup in price_list:
+    for tup in datalist:
         key = tup[3]
         cur.execute(f"INSERT OR IGNORE INTO Electricity_Costs (Timestamp, Date, Time, Price_per_KWh) VALUES (?,?,?,?)", (tup[3], tup[2], tup[1], tup[0]))
         if key in existing:
@@ -132,11 +125,14 @@ def create_electricitycost_table_with_limit(dnonum, voltagelevel, start, end, cu
 
     conn.commit()
 
-# def calculate_average_costs(cur):
+def calculate_average_electricity_costs(cur):
+    pass
 
 def main():
     cur, conn = set_up_database("electricity_costs.db")
-    create_electricitycost_table_with_limit(12, 'HV', '09-04-2024', '10-04-2024', cur, conn)
+    electricity_costs_dict = get_electricity_costs_dict(12, 'HV', '09-04-2024', '10-04-2024')
+    price_list = retrieve_price_and_timestamp(electricity_costs_dict)
+    create_electricitycost_table_with_limit(price_list, cur, conn)
     conn.close()
 
 if __name__ == "__main__":
