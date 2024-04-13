@@ -28,20 +28,26 @@ def api_request(date):
 #     return cur, conn
 
 def create_table(r, cur, conn):
+    '''
+    Arguments: takes the json output from the API request
+    '''
     for i in range(len(r['data']['data'])):
-        cur.execute("DROP TABLE IF EXISTS Carbon_Intensity_Data_April9")
-        cur.execute("CREATE TABLE IF NOT EXISTS Carbon_Intensity_Data_April9 (start_time TEXT PRIMARY KEY, intensity_forecast TEXT)")
+        # cur.execute("DROP TABLE IF EXISTS Carbon_Intensity_Data")
+        cur.execute("CREATE TABLE IF NOT EXISTS Carbon_Intensity_Data (timestamp TEXT PRIMARY KEY, date TEXT, time TEXT, intensity_forecast TEXT)")
 
     #initializing variables that will go into database
     for interval in r['data']['data']: 
         # print(interval)
-        start_time = interval['from'][-6:-1]
+        start_time = interval['from'][-6:-1] 
         # print(start_time)
         end_time = interval['to'][-6:-1]
         # print(end_time)
+        date = interval['from'][8:10] + '-' + interval['from'][5:7] + '-' + interval['from'][:4]
+        timestamp = interval['from'][-6:-1] + ' ' + interval['from'][8:10] + '-' + interval['from'][5:7] + '-' + interval['from'][:4]
+        # print(timestamp)
         intensity_forecast = interval['intensity']['forecast']
         # print(intensity_forecast)
-        cur.execute("INSERT OR IGNORE INTO Carbon_Intensity_Data_April9 (start_time, intensity_forecast) VALUES (?,?)", (start_time, intensity_forecast))
+        cur.execute("INSERT OR IGNORE INTO Carbon_Intensity_Data (timestamp, date, time, intensity_forecast) VALUES (?,?,?,?)", (timestamp, date, start_time, intensity_forecast))
 
     conn.commit()
 
@@ -52,4 +58,5 @@ def main():
     cur = conn.cursor()
     create_table(r, cur, conn)
 
-
+if __name__ == "__main__":
+    main()
