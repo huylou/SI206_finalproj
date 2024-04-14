@@ -69,7 +69,7 @@ def retrieve_price_and_timestamp(jsondict):
     
     OUTPUT:
         List:
-            List of tuples (Price, Time, Date) containing the overall price of the timestamp and date (DD-MM-YYYY)
+            List of tuples (Price, Time, Date, Timestamp) containing the overall price of the timestamp and date (DD-MM-YYYY)
             
     '''
     lst = []
@@ -126,13 +126,42 @@ def create_electricitycost_table_with_limit(datalist, cur, conn):
     conn.commit()
 
 def calculate_average_electricity_costs(cur):
-    pass
+    '''
+    Calculates average electricity costs per timestamp
+    ARGUMENTS:
+        Cursor: cur
+    
+    OUTPUT:
+        List of Tuples (Timestamp, Average Price per kWh)'''
+    
+    cur.execute("SELECT Time, Price_per_KWh FROM Electricity_Costs")
+    d = {}
+    lst = list(cur.fetchall())
+    avg_list = []
+    
+    for tup in lst:
+        if tup[0] not in list(d.keys()):
+            d[tup[0]] = []
+        d[tup[0]].append(tup[1])
+    
+    for timestamp, lst in d.items():
+        accum = 0
+        count = 0
+        for price in lst:
+            accum += price
+            count += 1
+        avg = float(accum / count)
+        avg_list.append((timestamp, round(avg, 2)))
+
+    return avg_list
 
 def main():
     cur, conn = set_up_database("electricity_costs.db")
-    electricity_costs_dict = get_electricity_costs_dict(12, 'HV', '09-04-2024', '10-04-2024')
+    electricity_costs_dict = get_electricity_costs_dict(12, 'HV', '05-04-2024', '12-04-2024')
     price_list = retrieve_price_and_timestamp(electricity_costs_dict)
     create_electricitycost_table_with_limit(price_list, cur, conn)
+    avg_list = calculate_average_electricity_costs(cur)
+    print(avg_list)
     conn.close()
 
 if __name__ == "__main__":
