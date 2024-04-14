@@ -4,6 +4,7 @@ import requests
 import json
 import os
 
+
 #import carbon intensity API
 
 def api_request(date):
@@ -15,17 +16,9 @@ def api_request(date):
 
     headers = {'Accept': 'application/json'}
     from_ = f"{date}T00:30Z"
-    to = f"{date}T23:59Z"
+    to = f"{date}T24:00Z"
     r = requests.get(f'https://api.carbonintensity.org.uk/regional/intensity/{from_}/{to}/regionid/13', params={}, headers = headers).json()
-    # print(r)
     return r
-
-# #creating database
-# def set_up_database():
-#     path = os.path.dirname(os.path.abspath(__file__))
-#     conn = sqlite3.connect(path + "/" + 'carbon_intensity.db')
-#     cur = conn.cursor()
-#     return cur, conn
 
 def create_table(r, cur, conn):
     '''
@@ -33,7 +26,7 @@ def create_table(r, cur, conn):
     '''
 
     # cur.execute("DROP TABLE IF EXISTS Carbon_Intensity_Data")
-    cur.execute("CREATE TABLE IF NOT EXISTS Carbon_Intensity_Data (timestamp TEXT PRIMARY KEY, date TEXT, time TEXT, intensity_forecast TEXT)")
+    cur.execute("CREATE TABLE IF NOT EXISTS Carbon_Intensity_Data (timestamp TEXT PRIMARY KEY, date TEXT, time TEXT, intensity_forecast INTEGER)")
 
     #find existing timestamps in database
     count = 0
@@ -54,7 +47,7 @@ def create_table(r, cur, conn):
             # print(interval)
             start_time = interval['from'][-6:-1] 
             # print(start_time)
-            intensity_forecast = interval['intensity']['forecast']
+            intensity_forecast = int(interval['intensity']['forecast'])
             # print(intensity_forecast)
             date = interval['from'][8:10] + '-' + interval['from'][5:7] + '-' + interval['from'][:4]
             timestamp = interval['from'][-6:-1] + ' ' + interval['from'][8:10] + '-' + interval['from'][5:7] + '-' + interval['from'][:4]
@@ -66,13 +59,46 @@ def create_table(r, cur, conn):
                 count += 1 # count only increases IF not in database yet
     conn.commit()
 
+def calculate_average_intensity_forecast(cur):
+    '''
+    Calculates average intensity forecast per timestamp
+    ARGUMENTS:
+        Cursor: cur
+    
+    OUTPUT:
+        List of Tuples (Timestamp, Average Intensity Forecast Value)'''
+    
+    cur.execute("SELECT time, intensity_forecast FROM Carbon_Intensity_Data")
+    d = {}
+    lst = list(cur.fetchall())
+    avg_list = []
+    
+    for tup in lst:
+        if tup[0] not in list(d.keys()):
+            d[tup[0]] = []
+        d[tup[0]].append(tup[1])
+    
+    for timestamp, lst in d.items():
+        accum = 0
+        count = 0
+        for inten in lst:
+            accum += inten
+            count += 1
+        avg = float(accum / count)
+        avg_list.append((timestamp, round(avg, 2)))
+    
+    return avg_list
+
 
 def main():
     r = api_request('2024-04-09')
+    # print(r)
     path = os.path.dirname(os.path.abspath(__file__))
     conn = sqlite3.connect(path + "/" + 'carbon_intensity.db')
     cur = conn.cursor()
     create_table(r, cur, conn)
-
+    avg_inten_list = calculate_average_intensity_forecast(cur)
+    # print(avg_inten_list)
+    
 if __name__ == "__main__":
     main()
