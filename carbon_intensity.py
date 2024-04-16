@@ -4,19 +4,18 @@ import requests
 import json
 import os
 
-
 #import carbon intensity API
 
-def api_request(date):
+def api_request(start_date, end_date):
     '''
     Arguments: Takes a date in string form in the format YYYY-MM-DD
     
-    Returns: The data from the website for that day in 30 minute intervals
+    Returns: The data from the website for the time range in 30 minute intervals
     '''
 
     headers = {'Accept': 'application/json'}
-    from_ = f"{date}T00:30Z"
-    to = f"{date}T24:00Z"
+    from_ = f"{start_date}T00:30Z"
+    to = f"{end_date}T24:00Z"
     r = requests.get(f'https://api.carbonintensity.org.uk/regional/intensity/{from_}/{to}/regionid/13', params={}, headers = headers).json()
     return r
 
@@ -42,8 +41,8 @@ def create_table(r, cur, conn):
     for interval in r['data']['data']: 
         if count == 24: 
             break
+    #initializing variables that will go into database
         else: 
-            #initializing variables that will go into database
             # print(interval)
             start_time = interval['from'][-6:-1] 
             # print(start_time)
@@ -91,7 +90,7 @@ def calculate_average_intensity_forecast(cur):
 
 
 def main():
-    r = api_request('2024-04-09')
+    r = api_request('2024-04-05', '2024-04-11')
     # print(r)
     path = os.path.dirname(os.path.abspath(__file__))
     conn = sqlite3.connect(path + "/" + 'carbon_intensity.db')
@@ -99,6 +98,6 @@ def main():
     create_table(r, cur, conn)
     avg_inten_list = calculate_average_intensity_forecast(cur)
     # print(avg_inten_list)
-    
+
 if __name__ == "__main__":
     main()
