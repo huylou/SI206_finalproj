@@ -4,22 +4,36 @@ import requests
 import json
 import os
 
-#get generation mix average across the week
-#join databases on timestamp
-#visualize gen mix as pie chart, joined database as line chart 
 #import carbon intensity API
 
-def api_request(start_date, end_date):
+def api_request(date, regionid):
     '''
     Arguments: Takes a date in string form in the format YYYY-MM-DD
-    
-    Returns: The data from the website for the time range in 30 minute intervals
+    1	North Scotland
+    2	South Scotland
+    3	North West England
+    4	North East England
+    5	Yorkshire
+    6	North Wales
+    7	South Wales
+    8	West Midlands
+    9	East Midlands
+    10	East England
+    11	South West England
+    12	South England
+    13	London
+    14	South East England
+    15	England
+    16	Scotland
+    17	Wales
+
+    Returns: The data from the website for that day in 30 minute intervals
     '''
 
     headers = {'Accept': 'application/json'}
-    from_ = f"{start_date}T00:30Z"
-    to = f"{end_date}T24:00Z"
-    r = requests.get(f'https://api.carbonintensity.org.uk/regional/intensity/{from_}/{to}/regionid/13', params={}, headers = headers).json()
+    from_ = f"{date}T00:30Z"
+    to = f"{date}T24:00Z"
+    r = requests.get(f'https://api.carbonintensity.org.uk/regional/intensity/{from_}/{to}/regionid/{regionid}', params={}, headers = headers).json()
     return r
 
 def create_table(r, cur, conn):
@@ -44,8 +58,8 @@ def create_table(r, cur, conn):
     for interval in r['data']['data']: 
         if count == 24: 
             break
-    #initializing variables that will go into database
         else: 
+            #initializing variables that will go into database
             # print(interval)
             start_time = interval['from'][-6:-1] 
             # print(start_time)
@@ -91,29 +105,14 @@ def calculate_average_intensity_forecast(cur):
     
     return avg_list
 
-def get_gen_mix(r, cur, conn):
-    for interval in r['data']['data']: 
-        for gen_info in interval['generationmix']: 
-            gen_type = gen_info['fuel']
-            print(gen_type)
-            gen_perc = gen_info['perc']
-            print(gen_perc)
-
-
-
-
-
-
 
 def main():
-    r = api_request('2024-04-05', '2024-04-11')
-    print(r)
+    r = api_request('2024-04-09', 13)
     path = os.path.dirname(os.path.abspath(__file__))
     conn = sqlite3.connect(path + "/" + 'carbon_intensity.db')
     cur = conn.cursor()
     create_table(r, cur, conn)
     avg_inten_list = calculate_average_intensity_forecast(cur)
-    # print(avg_inten_list)
-    get_gen_mix(r,cur,conn)
+    
 if __name__ == "__main__":
     main()
