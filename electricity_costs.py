@@ -32,8 +32,8 @@ def get_electricity_costs_dict(dnonum, voltagelevel, start, end):
             10 – Eastern England
             11 – East Midlands
             12 – London
-            13 – North Wales & Mersey
-            14 – Midlands
+            13 – North Wales
+            14 – West Midlands
             15 – North East
             16 – North West
             17 – Northern Scotland
@@ -60,7 +60,7 @@ def get_electricity_costs_dict(dnonum, voltagelevel, start, end):
     r = requests.get(f'https://odegdcpnma.execute-api.eu-west-2.amazonaws.com/development/prices?{dno}&{voltage}&{startdate}&{enddate}').json()
     return r
 
-def retrieve_price_and_timestamp(jsondict):
+def retrieve_price_and_timestamp(jsondict, dnodict):
     '''
     Retrieve overall price per kWh and timestamp (XX:XX DD-MM-YYYY)
 
@@ -73,12 +73,13 @@ def retrieve_price_and_timestamp(jsondict):
             
     '''
     lst = []
+    dnoregion = dnodict[int(jsondict['data']['dnoRegion'])]
     for dct in jsondict['data']['data']:
         price = float(dct['Overall'])
-        timestamp = dct['Timestamp']
+        timestamp = f"{dct['Timestamp']} {dnoregion}"
         date = re.findall(r'\d{2}\-\d{2}\-\d{4}', timestamp)[0]
         time = re.findall(r'\d{2}\:\d{2}', timestamp)[0]
-        tup = (price, time, date, timestamp)
+        tup = (price, time, date, dnoregion, timestamp)
         lst.append(tup)
     return lst
 
@@ -99,12 +100,13 @@ def create_electricitycost_table_with_limit(datalist, cur, conn):
     # Create table in database if it does not exist 
     cur.execute(f'''CREATE TABLE IF NOT EXISTS Electricity_Costs
                 (Timestamp TEXT PRIMARY KEY,
+                DNO_Region TEXT,
                 Date TEXT, 
                 Time TEXT,
                 Price_per_KWh INTEGER)''')
     
     # Create list of existing keys in database
-    cur.execute("SELECT Timestamp FROM Electricity_Costs")
+    cur.execute("SELECT Timestamp, DNO_Region FROM Electricity_Costs")
     existing = []
     retrieved = list(cur.fetchall())
     for keytup in retrieved:
@@ -113,8 +115,8 @@ def create_electricitycost_table_with_limit(datalist, cur, conn):
     # Insert data into database with the limit of 24 items or less
     loop_count = 0  
     for tup in datalist:
-        key = tup[3]
-        cur.execute(f"INSERT OR IGNORE INTO Electricity_Costs (Timestamp, Date, Time, Price_per_KWh) VALUES (?,?,?,?)", (tup[3], tup[2], tup[1], tup[0]))
+        key = tup[4]
+        cur.execute(f"INSERT OR IGNORE INTO Electricity_Costs (Timestamp, DNO_Region, Date, Time, Price_per_KWh) VALUES (?,?,?,?,?)", (tup[4], tup[3], tup[2], tup[1], tup[0]))
         if key in existing:
             continue
         else:
@@ -156,12 +158,13 @@ def calculate_average_electricity_costs(cur):
     return avg_list
 
 def main():
+    dnoregiondict = {10:'East England', 11:'East Midlands',  12:'London',  13:'North Wales', 14:'West Midlands', 15:'North East England', 16:'North West England', 17:'North Scotland', 18:'South Scotland', 19:'South East England', 20: 'South England', 21: 'South Wales', 22: 'South West England', 23: 'Yorkshire'}
     cur, conn = set_up_database("electricity_costs.db")
-    electricity_costs_dict = get_electricity_costs_dict(12, 'HV', '05-04-2024', '12-04-2024')
-    price_list = retrieve_price_and_timestamp(electricity_costs_dict)
-    create_electricitycost_table_with_limit(price_list, cur, conn)
-    avg_list = calculate_average_electricity_costs(cur)
-    print(avg_list)
+    for dnonum in dnoregiondict.keys():
+        electricity_costs_dict = get_electricity_costs_dict(dnonum, 'HV', '21-04-2024', '27-04-2024')
+        price_list = retrieve_price_and_timestamp(electricity_costs_dict, dnoregiondict)
+        for times in range(14):
+            create_electricitycost_table_with_limit(price_list, cur, conn)
     conn.close()
 
 if __name__ == "__main__":
