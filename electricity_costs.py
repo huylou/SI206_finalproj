@@ -158,10 +158,24 @@ def calculate_average_electricity_costs(cur):
     return avg_list
 
 def main():
-    dnoregiondict = {10:'East England', 11:'East Midlands',  12:'London',  13:'North Wales', 14:'West Midlands', 15:'North East England', 16:'North West England', 17:'North Scotland', 18:'South Scotland', 19:'South East England', 20: 'South England', 21: 'South Wales', 22: 'South West England', 23: 'Yorkshire'}
+    dnoregiondict = {10:'East England', 
+                     11:'East Midlands',  
+                     12:'London',  
+                     13:'North Wales & Merseyside', 
+                     14:'West Midlands', 
+                     15:'North East England', 
+                     16:'North West England', 
+                     17:'North Scotland', 
+                     18:'South Scotland', 
+                     19:'South East England', 
+                     20:'South England', 
+                     21:'South Wales', 
+                     22:'South West England', 
+                     23:'Yorkshire'}
+    
     cur, conn = set_up_database("electricity_costs.db")
     for dnonum in dnoregiondict.keys():
-        electricity_costs_dict = get_electricity_costs_dict(dnonum, 'HV', '21-04-2024', '27-04-2024')
+        electricity_costs_dict = get_electricity_costs_dict(dnonum, 'HV', '21-04-2024', '28-04-2024')
         price_list = retrieve_price_and_timestamp(electricity_costs_dict, dnoregiondict)
         for times in range(14):
             create_electricitycost_table_with_limit(price_list, cur, conn)
