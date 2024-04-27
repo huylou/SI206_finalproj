@@ -6,7 +6,7 @@ import os
 
 #import carbon intensity API
 
-def api_request(date, regionid):
+def api_request(startdate, enddate, regionid):
     '''
     Arguments: Takes a date in string form in the format YYYY-MM-DD
     1	North Scotland
@@ -31,8 +31,8 @@ def api_request(date, regionid):
     '''
 
     headers = {'Accept': 'application/json'}
-    from_ = f"{date}T00:30Z"
-    to = f"{date}T24:00Z"
+    from_ = f"{startdate}T00:30Z"
+    to = f"{enddate}T24:00Z"
     r = requests.get(f'https://api.carbonintensity.org.uk/regional/intensity/{from_}/{to}/regionid/{regionid}', params={}, headers = headers).json()
     return r
 
@@ -41,11 +41,11 @@ def create_carbon_intensity_table(r, cur, conn):
     Arguments: takes the json output from the API request
     '''
     # cur.execute("DROP TABLE IF EXISTS Carbon_Intensity_Data")
-    cur.execute(f"CREATE TABLE IF NOT EXISTS Carbon_Intensity_Data_UKPNLondon (timestamp TEXT PRIMARY KEY, date TEXT, time TEXT, intensity_forecast INTEGER)")
+    cur.execute(f"CREATE TABLE IF NOT EXISTS Carbon_Intensity_Data (Timestamp TEXT PRIMARY KEY, DNO_Region TEXT, Date TEXT, Time TEXT, Intensity_Forecast INTEGER)")
 
     #find existing timestamps in database
     count = 0
-    cur.execute("SELECT timestamp FROM Carbon_Intensity_Data_UKPNLondon") #returns tuple of timestamps
+    cur.execute("SELECT timestamp FROM Carbon_Intensity_Data") #returns tuple of timestamps
     current = list(cur.fetchall())
     # print(current)
     existing_timestamps = []
@@ -64,13 +64,14 @@ def create_carbon_intensity_table(r, cur, conn):
             # print(start_time)
             intensity_forecast = int(interval['intensity']['forecast'])
             # print(intensity_forecast)
+            dnoregion = r['data']['shortname']
             date = interval['from'][8:10] + '-' + interval['from'][5:7] + '-' + interval['from'][:4]
-            timestamp = interval['from'][-6:-1] + ' ' + interval['from'][8:10] + '-' + interval['from'][5:7] + '-' + interval['from'][:4]
+            timestamp = interval['from'][-6:-1] + ' ' + interval['from'][8:10] + '-' + interval['from'][5:7] + '-' + interval['from'][:4] + ' ' + dnoregion
             # print(timestamp)
             if timestamp in existing_timestamps: 
                 continue
             else:
-                cur.execute("INSERT OR IGNORE INTO Carbon_Intensity_Data_UKPNLondon (timestamp, date, time, intensity_forecast) VALUES (?,?,?,?)", (timestamp, date, start_time, intensity_forecast))
+                cur.execute("INSERT OR IGNORE INTO Carbon_Intensity_Data (Timestamp, DNO_Region, Date, Time, Intensity_Forecast) VALUES (?,?,?,?,?)", (timestamp, dnoregion, date, start_time, intensity_forecast))
                 count += 1 # count only increases IF not in database yet
     conn.commit()
 
@@ -83,7 +84,8 @@ def calculate_average_intensity_forecast(cur):
     OUTPUT:
         List of Tuples (Timestamp, Average Intensity Forecast Value)'''
     
-    cur.execute("SELECT time, intensity_forecast FROM Carbon_Intensity_Data_UKPNLondon")
+    cur.execute("SELECT time, intensity_forecast FROM Carbon_Intensity_Data")
+    
     d = {}
     lst = list(cur.fetchall())
     avg_list = []
@@ -96,12 +98,12 @@ def calculate_average_intensity_forecast(cur):
     for timestamp, lst in d.items():
         accum = 0
         count = 0
-        for inten in lst:
-            accum += inten
+        for price in lst:
+            accum += price
             count += 1
         avg = float(accum / count)
         avg_list.append((timestamp, round(avg, 2)))
-    
+
     return avg_list
 
 def create_generationmix_database(datadict, cur, conn):
@@ -110,16 +112,18 @@ def create_generationmix_database(datadict, cur, conn):
     for interval in datadict['data']['data']:
         start_time = interval['from'][-6:-1] 
         date = interval['from'][8:10] + '-' + interval['from'][5:7] + '-' + interval['from'][:4]
-        timestamp = interval['from'][-6:-1] + ' ' + interval['from'][8:10] + '-' + interval['from'][5:7] + '-' + interval['from'][:4]
-        d[timestamp] = {'start_time': start_time, 'date': date}
+        dnoregion = datadict['data']['shortname']
+        timestamp = interval['from'][-6:-1] + ' ' + interval['from'][8:10] + '-' + interval['from'][5:7] + '-' + interval['from'][:4] + ' ' + dnoregion
+        d[timestamp] = {'start_time': start_time, 'date': date, 'dnoregion': dnoregion}
         generationmix_dict = interval['generationmix']
         for mix in generationmix_dict:
             fuel = mix['fuel']
             percentage = mix['perc']
             d[timestamp][fuel] = percentage
     
-    cur.execute('''CREATE TABLE IF NOT EXISTS Generation_Mix_UKPNLondon 
+    cur.execute('''CREATE TABLE IF NOT EXISTS Generation_Mix_Data
                 (Timestamp TEXT PRIMARY KEY, 
+                DNO_Region TEXT,
                 Date TEXT, 
                 Time TEXT, 
                 Gas INTEGER, 
@@ -132,7 +136,7 @@ def create_generationmix_database(datadict, cur, conn):
                 Imports INTEGER,
                 Other INTEGER)''')
     
-    cur.execute("SELECT Timestamp FROM Generation_Mix_UKPNLondon")
+    cur.execute("SELECT Timestamp FROM Generation_Mix_Data")
     existing = []
     retrieved = list(cur.fetchall())
     for keytup in retrieved:
@@ -141,7 +145,7 @@ def create_generationmix_database(datadict, cur, conn):
     # Insert data into database with the limit of 24 items or less
     loop_count = 0  
     for stamp, dct in d.items():
-        cur.execute('''INSERT OR IGNORE INTO Generation_Mix_UKPNLondon (Timestamp, Date, Time, Gas, Coal, Biomass, Nuclear, Hydro, Wind, Solar, Imports, Other) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)''', (stamp, dct['date'], dct['start_time'], dct['gas'], dct['coal'], dct['biomass'], dct['nuclear'], dct['hydro'], dct['wind'], dct['solar'], dct['imports'], dct['other']))
+        cur.execute('''INSERT OR IGNORE INTO Generation_Mix_Data (Timestamp, DNO_Region, Date, Time, Gas, Coal, Biomass, Nuclear, Hydro, Wind, Solar, Imports, Other) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)''', (stamp, dct['dnoregion'], dct['date'], dct['start_time'], dct['gas'], dct['coal'], dct['biomass'], dct['nuclear'], dct['hydro'], dct['wind'], dct['solar'], dct['imports'], dct['other']))
         if stamp in existing:
             continue
         else:
@@ -152,14 +156,90 @@ def create_generationmix_database(datadict, cur, conn):
 
     conn.commit()
 
+def calculate_average_generationmix(cur):
+    cur.execute("SELECT Gas, Coal, Biomass, Nuclear, Hydro, Wind, Solar, Imports, Other FROM Generation_Mix_Data")
+    lst = list(cur.fetchall())
+    
+    gas = 0
+    coal = 0
+    bio = 0
+    nuke = 0
+    hydro = 0
+    wind = 0
+    solar = 0
+    imports = 0
+    other = 0
+    accum = 0
+    for tup in lst:
+        gas += tup[0]
+        coal += tup[1]
+        bio += tup[2]
+        nuke += tup[3]
+        hydro += tup[4]
+        wind += tup[5]
+        solar += tup[6]
+        imports += tup[7]
+        other += tup[8]
+        accum += 1
+
+    avg_mix = [('Gas', round(float(gas / accum), 2)), ('Coal', round(float(coal / accum), 2)), ('Biomass', round(float(bio / accum), 2)), ('Nuclear', round(float(nuke / accum),2)), ('Hydro', round(float(hydro / accum),2)), ('Wind', round(float(wind / accum),2)), ('Solar', round(float(solar / accum),2)), ('Imports', round(float(imports / accum),2)), ('Other', round(float(other / accum),2))]
+
+    return avg_mix
+
+def calculate_average_generationmix_timestamp(cur):
+    '''
+    Calculates average percentage of generation mix 
+    ARGUMENTS:
+        Cursor: cur
+    
+    OUTPUT:
+        Dict: {Timestamp:{Fuel: Average Percentage}}'''
+    
+    cur.execute("SELECT Time, Gas, Coal, Biomass, Nuclear, Hydro, Wind, Solar, Imports, Other FROM Generation_Mix_Data")
+    d = {}
+    avg = {}
+    lst = list(cur.fetchall())
+    
+    for tup in lst:
+        if tup[0] not in list(d.keys()):
+            d[tup[0]] = {'Gas': tup[1], 'Coal': tup[2], 'Biomass': tup[3], 'Nuclear': tup[4], 'Hydro': tup[5], 'Wind': tup[6], 'Solar': tup[7], 'Imports': tup[8], 'Other': tup[9], 'count': 1}
+        else:
+            d[tup[0]]['Gas'] += tup[1]
+            d[tup[0]]['Coal'] += tup[2]
+            d[tup[0]]['Biomass'] += tup[3]
+            d[tup[0]]['Nuclear'] += tup[4]
+            d[tup[0]]['Hydro'] += tup[5]
+            d[tup[0]]['Wind'] += tup[6]
+            d[tup[0]]['Solar'] += tup[7]
+            d[tup[0]]['Imports'] += tup[8]
+            d[tup[0]]['Other'] += tup[9]
+            d[tup[0]]['count'] += 1
+    
+    for timestamp, accumdict in d.items():
+        avggas = float(accumdict['Gas'] / accumdict['count'])
+        avgcoal = float(accumdict['Coal'] / accumdict['count'])
+        avgbio = float(accumdict['Biomass'] / accumdict['count'])
+        avgnuke = float(accumdict['Nuclear'] / accumdict['count'])
+        avghydro = float(accumdict['Hydro'] / accumdict['count'])
+        avgwind = float(accumdict['Wind'] / accumdict['count'])
+        avgsolar = float(accumdict['Solar'] / accumdict['count'])
+        avgimp = float(accumdict['Imports'] / accumdict['count'])
+        avgother = float(accumdict['Other'] / accumdict['count'])
+        avg[timestamp] = {'Gas': avggas, 'Coal': avgcoal, 'Biomass': avgbio, 'Nuclear': avgnuke, 'Hydro': avghydro, 'Wind': avgwind, 'Solar': avgsolar, 'Imports': avgimp, 'Other': avgother}
+
+    return avg
+
+
 def main():
-    r = api_request('2024-04-09', 13)
+
+    
     path = os.path.dirname(os.path.abspath(__file__))
     conn = sqlite3.connect(path + "/" + 'carbon_intensity.db')
     cur = conn.cursor()
-    create_carbon_intensity_table(r, cur, conn)
-    create_generationmix_database(r, cur, conn)
-    avg_inten_list = calculate_average_intensity_forecast(cur)
-    
+    for regionnum in range(1,15):
+        intensity_api_dict = api_request('2024-04-21', '2024-04-27', regionnum)
+        for times in range(14):
+            create_carbon_intensity_table(intensity_api_dict, cur, conn)
+            create_generationmix_database(intensity_api_dict, cur, conn) 
 if __name__ == "__main__":
-    main()
+    main()  
