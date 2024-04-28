@@ -1,9 +1,8 @@
-import unittest
 import sqlite3
 import requests
 import json
 import os
-
+import visualizations
 #import carbon intensity API
 
 def api_request(startdate, enddate, regionid):
@@ -155,8 +154,7 @@ def create_generationmix_database(datadict, cur, conn):
             break
 
     conn.commit()
-
-def calculate_average_generationmix(cur):
+def calculate_average_generationmix_region(dnoregion, cur):
     cur.execute("SELECT Gas, Coal, Biomass, Nuclear, Hydro, Wind, Solar, Imports, Other FROM Generation_Mix_Data")
     lst = list(cur.fetchall())
     
@@ -188,6 +186,7 @@ def calculate_average_generationmix(cur):
 
 def calculate_average_generationmix_timestamp(cur):
     '''
+    NOT NECESSARY ANYMORE
     Calculates average percentage of generation mix 
     ARGUMENTS:
         Cursor: cur
@@ -229,17 +228,11 @@ def calculate_average_generationmix_timestamp(cur):
 
     return avg
 
-
 def main():
-
-    
-    path = os.path.dirname(os.path.abspath(__file__))
-    conn = sqlite3.connect(path + "/" + 'carbon_intensity.db')
-    cur = conn.cursor()
-    for regionnum in range(1,15):
-        intensity_api_dict = api_request('2024-04-21', '2024-04-27', regionnum)
-        for times in range(14):
+    cur, conn = visualizations.set_up_database('carbon_intensity.db')
+    intensity_api_dict = api_request('2024-04-21', '2024-04-27', 13)
+    for times in range(14):
             create_carbon_intensity_table(intensity_api_dict, cur, conn)
-            create_generationmix_database(intensity_api_dict, cur, conn) 
+    print(calculate_average_intensity_forecast(cur))
 if __name__ == "__main__":
     main()  
