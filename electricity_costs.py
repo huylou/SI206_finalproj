@@ -1,27 +1,9 @@
-import unittest
 import sqlite3
 import requests
 import json
 import os
 import re
-
-
-def set_up_database(db_name):
-    """
-    Sets up a SQLite database connection and cursor.
-
-    ARGUMENTS:
-        db_name: str
-            The name of the SQLite database.
-
-    OUTPUT:
-        Tuple (Cursor, Connection):
-            A tuple containing the database cursor and connection.
-    """
-    filepath = os.path.dirname(os.path.abspath(__file__))
-    conn = sqlite3.connect(filepath + "/" + db_name)
-    cur = conn.cursor()
-    return cur, conn
+import visualizations
 
 def get_electricity_costs_dict(dnonum, voltagelevel, start, end):
     '''
@@ -73,7 +55,7 @@ def retrieve_price_and_timestamp(jsondict, dnodict):
             
     '''
     lst = []
-    dnoregion = dnodict[int(jsondict['data']['dnoRegion'])]
+    dnoregion = dnodict[int(jsondict['data']['dnoRegion'])].strip()
     for dct in jsondict['data']['data']:
         price = float(dct['Overall'])
         timestamp = f"{dct['Timestamp']} {dnoregion}"
@@ -158,28 +140,7 @@ def calculate_average_electricity_costs(cur):
     return avg_list
 
 def main():
-    dnoregiondict = {10:'East England', 
-                     11:'East Midlands',  
-                     12:'London',  
-                     13:'North Wales & Merseyside', 
-                     14:'West Midlands', 
-                     15:'North East England', 
-                     16:'North West England', 
-                     17:'North Scotland', 
-                     18:'South Scotland', 
-                     19:'South East England', 
-                     20:'South England', 
-                     21:'South Wales', 
-                     22:'South West England', 
-                     23:'Yorkshire'}
-    
-    cur, conn = set_up_database("electricity_costs.db")
-    for dnonum in dnoregiondict.keys():
-        electricity_costs_dict = get_electricity_costs_dict(dnonum, 'HV', '21-04-2024', '28-04-2024')
-        price_list = retrieve_price_and_timestamp(electricity_costs_dict, dnoregiondict)
-        for times in range(14):
-            create_electricitycost_table_with_limit(price_list, cur, conn)
-    conn.close()
+    pass
 
 if __name__ == "__main__":
     main()
