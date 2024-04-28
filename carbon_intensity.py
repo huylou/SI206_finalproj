@@ -154,7 +154,7 @@ def create_generationmix_database(datadict, cur, conn):
             break
 
     conn.commit()
-def calculate_average_generationmix_region(dnoregion, cur):
+def calculate_average_generationmix_region(cur):
     cur.execute("SELECT Gas, Coal, Biomass, Nuclear, Hydro, Wind, Solar, Imports, Other FROM Generation_Mix_Data")
     lst = list(cur.fetchall())
     
@@ -229,10 +229,11 @@ def calculate_average_generationmix_timestamp(cur):
     return avg
 
 def main():
-    cur, conn = visualizations.set_up_database('carbon_intensity.db')
-    intensity_api_dict = api_request('2024-04-21', '2024-04-27', 13)
-    for times in range(14):
-            create_carbon_intensity_table(intensity_api_dict, cur, conn)
-    print(calculate_average_intensity_forecast(cur))
+    # cur, conn = visualizations.set_up_database('carbon_intensity.db')
+    # intensity_api_dict = api_request('2024-04-21', '2024-04-27', 13)
+    # for times in range(14):
+    #         create_carbon_intensity_table(intensity_api_dict, cur, conn)
+    # print(calculate_average_intensity_forecast(cur))
+    pass
 if __name__ == "__main__":
     main()  
