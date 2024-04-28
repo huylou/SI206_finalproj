@@ -25,20 +25,20 @@ def set_up_database(db_name):
 
 def avg_cost_intensity_calculation_region(cur, dnoregion):
     cur.execute(f'''
-                SELECT Electricity_Costs.Time, Electricity_Costs.Price_per_KWh, Carbon_Intensity_Data.Intensity_Forecast 
-                FROM Electricity_Costs
-                JOIN Carbon_Intensity_Data ON Electricity_Costs.DNO_Region = Carbon_Intensity_Data.DNO_Region
-                WHERE Carbon_Intensity_Data.DNO_Region = '{dnoregion}'
+                SELECT Carbon_Intensity_Data.Time, Carbon_Intensity_Data.Date, Carbon_Intensity_Data.Intensity_Forecast, Electricity_Costs.Price_per_KWh  
+                FROM Carbon_Intensity_Data
+                INNER JOIN Electricity_Costs ON Carbon_Intensity_Data.Timestamp = Electricity_Costs.Timestamp
+                WHERE Electricity_Costs.DNO_Region = '{dnoregion}'
                 ''')
     lst = cur.fetchall()
     d = {}
     avg_dict = {}
     for tup in lst:
         if tup[0] not in list(d.keys()):
-            d[tup[0]] = {'intensity_forecast': tup[2], 'price': tup[1], 'count': 1}
+            d[tup[0]] = {'intensity_forecast': tup[2], 'price': tup[3], 'count': 1}
         else:
             d[tup[0]]['intensity_forecast'] += tup[2]
-            d[tup[0]]['price'] += tup[1]
+            d[tup[0]]['price'] += tup[3]
             d[tup[0]]['count'] += 1
 
     for timestamp, accumdict in d.items():
@@ -50,6 +50,7 @@ def avg_cost_intensity_calculation_region(cur, dnoregion):
 
 def avg_cost_to_intensity_linechart_dnoregion(cur, dnoregion):
     avg_dict = avg_cost_intensity_calculation_region(cur, dnoregion)
+
     pass
 def generation_mix_piechart():
     pass
@@ -73,7 +74,6 @@ def main():
                      21:'South Wales', 
                      22:'South West England', 
                      23:'Yorkshire'}
-    
     # for dnonum in dnoregiondict.keys():
     #     electricity_costs_dict = electricity_costs.get_electricity_costs_dict(dnonum, 'HV', '21-04-2024', '28-04-2024')
     #     price_list = electricity_costs.retrieve_price_and_timestamp(electricity_costs_dict, dnoregiondict)
