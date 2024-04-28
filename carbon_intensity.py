@@ -154,7 +154,7 @@ def create_generationmix_database(datadict, cur, conn):
             break
 
     conn.commit()
-def calculate_average_generationmix_region(cur):
+def calculate_average_generationmix(cur):
     cur.execute("SELECT Gas, Coal, Biomass, Nuclear, Hydro, Wind, Solar, Imports, Other FROM Generation_Mix_Data")
     lst = list(cur.fetchall())
     
