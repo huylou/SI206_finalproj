@@ -1,12 +1,15 @@
 import matplotlib.pyplot as plt
+import csv
 import os
 import sqlite3
-import geopandas
+import pandas as pd
+import geopandas as gpd #install geopandas: conda install geopandas
+import mapclassify #conda install -c conda-forge mapclassify
 import electricity_costs
 import carbon_intensity
 
 ''' This .py file performs calculations and visualizations of our database data
-    install geopandas: conda install geopandas'''
+    INSTALL MODULES THRU ANACONDA PROMPT'''
 
 def set_up_database(db_name):
     """
@@ -25,6 +28,26 @@ def set_up_database(db_name):
     cur = conn.cursor()
     return cur, conn
 
+def intensity_avg_csv_writer(cur, dnodict):
+
+    """
+
+    Write data to a CSV file.
+
+    Args:
+
+        data (dict): A dictionary containing data to be written to the CSV file.
+
+        filename (str): 
+    """
+    with open('avg_intensity_dnoregions.csv', 'w', encoding='utf-8-sig') as file:
+        csv_writer = csv.writer(file)
+        header = ['ID', 'dno_region', 'average_carbon_intensity']
+        csv_writer.writerow(header)
+
+        for dno_id, dnoregion in dnodict.items():
+            tup = carbon_intensity.calculate_average_carbonintensity_region(cur, dnoregion)
+            csv_writer.writerow([dno_id, tup[0], tup[1]])
 
 def avg_cost_intensity_calculation_region(cur, dnoregion):
     cur.execute(f'''
@@ -128,10 +151,16 @@ def generation_mix_piechart(cur):
     plt.title("UK Power Generation Mix by Source", fontsize = 14)
     plt.show()
 
-def uk_dnoregion_geospatial():
-    pass
+def avg_intensity_uk_dnoregion_geospatial(dno_csv, geojson):
+    gdf = gpd.read_file(geojson)
+    dno_df = pd.read_csv(dno_csv)
+    gdf = gdf.merge(dno_df, on='ID')
+    gdf.plot(column='average_carbon_intensity', figsize=(20, 10), scheme="Quantiles", k=14, linewidth=0.1, edgecolor="grey", legend=True, legend_kwds={'title': '(gCO2/kWh)', 'title_fontsize': 5, 'fontsize': 5, 'markerscale': 0.6}, cmap='YlOrRd').set_axis_off()
+    plt.title("Average Carbon Intensity by UK DNO Regions", fontsize = 14)
+    plt.show()
 
 def main():
+    #Database set up
     cur, conn = set_up_database('uk_electricitycosts_carbonintensity_data.db')
     dnoregiondict = {10:'East England', 
                      11:'East Midlands',  
@@ -147,20 +176,29 @@ def main():
                      21:'South Wales', 
                      22:'South West England', 
                      23:'Yorkshire'}
-    # for dnonum in dnoregiondict.keys():
-    #     electricity_costs_dict = electricity_costs.get_electricity_costs_dict(dnonum, 'HV', '21-04-2024', '28-04-2024')
-    #     price_list = electricity_costs.retrieve_price_and_timestamp(electricity_costs_dict, dnoregiondict)
-    #     for times in range(14):
-    #         electricity_costs.create_electricitycost_table_with_limit(price_list, cur, conn)
+    # Create Database Table for Electricity Costs
+    for dnonum in dnoregiondict.keys():
+        electricity_costs_dict = electricity_costs.get_electricity_costs_dict(dnonum, 'HV', '21-04-2024', '28-04-2024')
+        price_list = electricity_costs.retrieve_price_and_timestamp(electricity_costs_dict, dnoregiondict)
+        for times in range(14):
+            electricity_costs.create_electricitycost_table_with_limit(price_list, cur, conn)
     
-    # for regionnum in range(1,15):
-    #     intensity_api_dict = carbon_intensity.api_request('2024-04-21', '2024-04-27', regionnum)
-    #     for times in range(14):
-    #         carbon_intensity.create_carbon_intensity_table(intensity_api_dict, cur, conn)
-    #         carbon_intensity.create_generationmix_database(intensity_api_dict, cur, conn) 
-    # avg_cost_to_intensity_linechart_dnoregion(cur, 'London')
-    avg_cost_to_intensity_linechart_alldnoregion(cur, dnoregiondict)
-    generation_mix_piechart(cur)
+     # Create Database Table for Carbon Intensity and Generation Mix
+    for regionnum in range(1,15):
+        intensity_api_dict = carbon_intensity.api_request('2024-04-21', '2024-04-27', regionnum)
+        for times in range(14):
+            carbon_intensity.create_carbon_intensity_table(intensity_api_dict, cur, conn)
+            carbon_intensity.create_generationmix_database(intensity_api_dict, cur, conn) 
+
+    #Calculations to file
+    intensity_avg_csv_writer(cur, dnoregiondict)
+    #!!! write more functions to collect data into file
+
+    # Data Visualization
+    avg_cost_to_intensity_linechart_dnoregion(cur, 'London') #linechart individual
+    avg_cost_to_intensity_linechart_alldnoregion(cur, dnoregiondict) #linechart all regions
+    generation_mix_piechart(cur) #piechart
+    avg_intensity_uk_dnoregion_geospatial('avg_intensity_dnoregions.csv', 'DNO_License_Areas_20200506.geojson') #geospatial viz
     conn.close()
 
 if __name__ == "__main__":
