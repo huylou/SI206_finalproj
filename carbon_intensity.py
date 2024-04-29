@@ -74,36 +74,16 @@ def create_carbon_intensity_table(r, cur, conn):
                 count += 1 # count only increases IF not in database yet
     conn.commit()
 
-def calculate_average_intensity_forecast(cur):
-    '''
-    Calculates average intensity forecast per timestamp
-    ARGUMENTS:
-        Cursor: cur
-    
-    OUTPUT:
-        List of Tuples (Timestamp, Average Intensity Forecast Value)'''
-    
-    cur.execute("SELECT time, intensity_forecast FROM Carbon_Intensity_Data")
-    
-    d = {}
-    lst = list(cur.fetchall())
-    avg_list = []
-    
+def calculate_average_carbonintensity_region(cur, dnoregion):
+    cur.execute(f"SELECT Intensity_Forecast, DNO_Region FROM Carbon_Intensity_Data WHERE DNO_Region = ?", (dnoregion,))
+    lst = cur.fetchall()
+    total = 0
+    count = 0 
     for tup in lst:
-        if tup[0] not in list(d.keys()):
-            d[tup[0]] = []
-        d[tup[0]].append(tup[1])
-    
-    for timestamp, lst in d.items():
-        accum = 0
-        count = 0
-        for price in lst:
-            accum += price
-            count += 1
-        avg = float(accum / count)
-        avg_list.append((timestamp, round(avg, 2)))
-
-    return avg_list
+        total += tup[0]
+        count += 1
+    avg = round(total / count, 2)
+    return (tup[1], avg)
 
 def create_generationmix_database(datadict, cur, conn):
 
