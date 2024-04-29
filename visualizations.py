@@ -124,14 +124,16 @@ def avg_cost_to_intensity_linechart_alldnoregion(cur, dnodict):
         ax1 = fig.add_subplot(4,4,pos)
         ax1_color = 'tab:red'
         ax1.set_xlabel('Time', loc='left')
-        ax1.set_ylabel('Carbon Intensity (gCO2/kWh)', color=ax1_color, fontsize = 6)
+        ax1.set_ylabel('Carbon Intensity (gCO2/kWh)', color=ax1_color, fontsize = 8)
         ax1.plot(time_axis, y_intensity, color=ax1_color)
         plt.xticks(rotation=60)
+        plt.yticks(fontsize=8)
 
         ax2 = ax1.twinx()
         ax2_color = 'tab:blue'
         ax2.set_ylabel('£/kWh', color=ax2_color, fontsize = 6)  
         ax2.plot(time_axis, y_price_per_kwh, color=ax2_color) 
+        plt.yticks(fontsize=8)
         
         plt.title(f"Average Carbon Intensity vs. Average Electricity Costs in {dnoregion} Over Time", fontsize = 5)
         pos += 1
@@ -177,18 +179,18 @@ def main():
                      22:'South West England', 
                      23:'Yorkshire'}
     # Create Database Table for Electricity Costs
-    for dnonum in dnoregiondict.keys():
-        electricity_costs_dict = electricity_costs.get_electricity_costs_dict(dnonum, 'HV', '21-04-2024', '28-04-2024')
-        price_list = electricity_costs.retrieve_price_and_timestamp(electricity_costs_dict, dnoregiondict)
-        for times in range(14):
-            electricity_costs.create_electricitycost_table_with_limit(price_list, cur, conn)
+    # for dnonum in dnoregiondict.keys():
+    #     electricity_costs_dict = electricity_costs.get_electricity_costs_dict(dnonum, 'HV', '21-04-2024', '28-04-2024')
+    #     price_list = electricity_costs.retrieve_price_and_timestamp(electricity_costs_dict, dnoregiondict)
+    #     for times in range(14):
+    #         electricity_costs.create_electricitycost_table_with_limit(price_list, cur, conn)
     
-     # Create Database Table for Carbon Intensity and Generation Mix
-    for regionnum in range(1,15):
-        intensity_api_dict = carbon_intensity.api_request('2024-04-21', '2024-04-27', regionnum)
-        for times in range(14):
-            carbon_intensity.create_carbon_intensity_table(intensity_api_dict, cur, conn)
-            carbon_intensity.create_generationmix_database(intensity_api_dict, cur, conn) 
+    #  # Create Database Table for Carbon Intensity and Generation Mix
+    # for regionnum in range(1,15):
+    #     intensity_api_dict = carbon_intensity.api_request('2024-04-21', '2024-04-27', regionnum)
+    #     for times in range(14):
+    #         carbon_intensity.create_carbon_intensity_table(intensity_api_dict, cur, conn)
+    #         carbon_intensity.create_generationmix_database(intensity_api_dict, cur, conn) 
 
     #Calculations to file
     intensity_avg_csv_writer(cur, dnoregiondict)
