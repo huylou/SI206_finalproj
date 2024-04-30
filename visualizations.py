@@ -3,8 +3,8 @@ import csv
 import os
 import sqlite3
 import pandas as pd
-import geopandas as gpd #install geopandas: conda install geopandas
-import mapclassify #conda install -c conda-forge mapclassify
+import geopandas as gpd
+import mapclassify
 import electricity_costs
 import carbon_intensity
 
@@ -74,6 +74,16 @@ def avg_cost_intensity_calculation_region(cur, dnoregion):
     
     return avg_dict
 
+def averages_as_text_csv_file(cur, data): 
+    with open('all_averages.csv', 'w', encoding='utf-8-sig') as file:
+        csv_writer = csv.writer(file)   
+        header = ['Timestamp', 'Average Intensity', 'Average Electricity Cost']
+        csv_writer.writerow(header)
+
+        for each_timestamp, averages in data.items():
+            # print(each_timestamp)
+            csv_writer.writerow([each_timestamp, averages['average_intensity'], averages['average_price']])
+        
 def avg_cost_to_intensity_linechart_dnoregion(cur, dnoregion):
     avg_dict = avg_cost_intensity_calculation_region(cur, dnoregion)
     time_axis = []
@@ -178,23 +188,29 @@ def main():
                      21:'South Wales', 
                      22:'South West England', 
                      23:'Yorkshire'}
-    # Create Database Table for Electricity Costs
+    
+    # # Create Database Table for Electricity Costs
     for dnonum in dnoregiondict.keys():
         electricity_costs_dict = electricity_costs.get_electricity_costs_dict(dnonum, 'HV', '21-04-2024', '28-04-2024')
         price_list = electricity_costs.retrieve_price_and_timestamp(electricity_costs_dict, dnoregiondict)
         for times in range(14):
             electricity_costs.create_electricitycost_table_with_limit(price_list, cur, conn)
     
-    #  # Create Database Table for Carbon Intensity and Generation Mix
+    # # Create Database Table for Carbon Intensity and Generation Mix
     for regionnum in range(1,15):
         intensity_api_dict = carbon_intensity.api_request('2024-04-21', '2024-04-27', regionnum)
         for times in range(14):
             carbon_intensity.create_carbon_intensity_table(intensity_api_dict, cur, conn)
             carbon_intensity.create_generationmix_database(intensity_api_dict, cur, conn) 
 
-    #Calculations to file
+    # #Intensity averages to file by region
     intensity_avg_csv_writer(cur, dnoregiondict)
-    #!!! write more functions to collect data into file
+
+    #Averages for carbon intensity and electricity costs by timestamp to file
+    data = avg_cost_intensity_calculation_region(cur, 'London')
+    print(data)
+    averages_as_text_csv_file(cur, data)
+
 
     # Data Visualization
     avg_cost_to_intensity_linechart_dnoregion(cur, 'London') #linechart individual
