@@ -164,56 +164,7 @@ def calculate_average_generationmix(cur):
 
     return avg_mix
 
-def calculate_average_generationmix_timestamp(cur):
-    '''
-    NOT NECESSARY ANYMORE
-    Calculates average percentage of generation mix 
-    ARGUMENTS:
-        Cursor: cur
-    
-    OUTPUT:
-        Dict: {Timestamp:{Fuel: Average Percentage}}'''
-    
-    cur.execute("SELECT Time, Gas, Coal, Biomass, Nuclear, Hydro, Wind, Solar, Imports, Other FROM Generation_Mix_Data")
-    d = {}
-    avg = {}
-    lst = list(cur.fetchall())
-    
-    for tup in lst:
-        if tup[0] not in list(d.keys()):
-            d[tup[0]] = {'Gas': tup[1], 'Coal': tup[2], 'Biomass': tup[3], 'Nuclear': tup[4], 'Hydro': tup[5], 'Wind': tup[6], 'Solar': tup[7], 'Imports': tup[8], 'Other': tup[9], 'count': 1}
-        else:
-            d[tup[0]]['Gas'] += tup[1]
-            d[tup[0]]['Coal'] += tup[2]
-            d[tup[0]]['Biomass'] += tup[3]
-            d[tup[0]]['Nuclear'] += tup[4]
-            d[tup[0]]['Hydro'] += tup[5]
-            d[tup[0]]['Wind'] += tup[6]
-            d[tup[0]]['Solar'] += tup[7]
-            d[tup[0]]['Imports'] += tup[8]
-            d[tup[0]]['Other'] += tup[9]
-            d[tup[0]]['count'] += 1
-    
-    for timestamp, accumdict in d.items():
-        avggas = float(accumdict['Gas'] / accumdict['count'])
-        avgcoal = float(accumdict['Coal'] / accumdict['count'])
-        avgbio = float(accumdict['Biomass'] / accumdict['count'])
-        avgnuke = float(accumdict['Nuclear'] / accumdict['count'])
-        avghydro = float(accumdict['Hydro'] / accumdict['count'])
-        avgwind = float(accumdict['Wind'] / accumdict['count'])
-        avgsolar = float(accumdict['Solar'] / accumdict['count'])
-        avgimp = float(accumdict['Imports'] / accumdict['count'])
-        avgother = float(accumdict['Other'] / accumdict['count'])
-        avg[timestamp] = {'Gas': avggas, 'Coal': avgcoal, 'Biomass': avgbio, 'Nuclear': avgnuke, 'Hydro': avghydro, 'Wind': avgwind, 'Solar': avgsolar, 'Imports': avgimp, 'Other': avgother}
-
-    return avg
-
 def main():
-    # cur, conn = visualizations.set_up_database('carbon_intensity.db')
-    # intensity_api_dict = api_request('2024-04-21', '2024-04-27', 13)
-    # for times in range(14):
-    #         create_carbon_intensity_table(intensity_api_dict, cur, conn)
-    # print(calculate_average_intensity_forecast(cur))
     pass
 if __name__ == "__main__":
     main()  
